@@ -1,3 +1,6 @@
+import math 
+import random 
+
 class Value:
     def __init__(self,data,_children = (),_op =''):
         self.data = data 
@@ -5,7 +8,15 @@ class Value:
         self._prev = set(_children)
         self._op = _op
         self._backward = lambda :None # default does nothing 
-   
+    
+    def tanh(self):
+        t = math.tanh(self.data)
+        result = Value(t,(self,),'tanh')
+        def _backward():
+            self.grad += (1-t**2)*result.grad 
+        result._backward = _backward
+        return result 
+    
     def backward(self):
         topo = []
         visited =set()
@@ -39,15 +50,36 @@ class Value:
     
     def __repr__(self):
          return f"Value(data={self.data}, grad={self.grad})"
+class Nueron:
+    def __init__(self,num_inputs):
+        self.weights = [Value(random.uniform(-1,1)) for _ in range(num_inputs)]
+        self.bias = Value(random.uniform(-1,1))
 
-a = Value(2.0)
-b = Value(3.0)
-c = Value(4.0)
-d= a*b
-e = d+c
-e.backward()
-print(f"a.grad = {a.grad}")
-print(f"b.grad = {b.grad}")
-print(f"c.grad = {c.grad}")
+    def __call__(self,inputs):
+        activation = sum((w*Value(x) for w,x in zip(self.weights,inputs)),self.bias)
 
+        return activation.tanh()
+    def parameters(self):
+        return self.weights
+n = Nueron(3)
+inputs =[2.0,3.0,-1.0]
+output = n(inputs)
+print(f"neuron outputs: {output}")
 
+output.backward()
+
+print(f"gradients after backprop:")
+for i,p in enumerate(n.parameters()):
+    print(f"param {i}: data = {p.data:.4f}, grad = {p.grad:.4f}")
+
+learning_rate = 0.01 
+print("\nBefore update:")
+for p in n.parameters():
+    print(f"data = {p.data:.4f}, grad = {p.grad:.4f}")
+
+for p in n.parameters():
+    p.data -= learning_rate * p.grad
+
+print("\nafter update: ")
+for p in n.parameters():
+    print(f"  data={p.data:.4f}, grad={p.grad:.4f}")
